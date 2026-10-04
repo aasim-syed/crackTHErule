@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Crack the Rule
 
-## Getting Started
+Six switches, one door, a secret rule. Players test patterns, form a theory, then prove it on an 8-question exam, racing Claude on the same rule. Lowest score wins (1 point per try, +3 per failed exam).
 
-First, run the development server:
+- **Play**: easy / medium / hard random rules, optional **twist mode** (the rule silently changes once).
+- **Make a rule**: build a rule, get a challenge link, send it to friends. The rule is AES-GCM encrypted inside the link, so the URL doesn't reveal it and the server stays stateless.
+- **No copying**: the AI's tries and reasoning stay hidden until you finish, then you can watch its whole thought process.
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # fill in ANTHROPIC_API_KEY and PUZZLE_SECRET
+npm install
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Works on Vercel as-is. Set `ANTHROPIC_API_KEY` and `PUZZLE_SECRET` in the project's environment variables. Changing `PUZZLE_SECRET` invalidates every existing share link.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
+- `src/lib/rules.ts`: rule language, evaluator, generator by difficulty
+- `src/lib/puzzle.ts`: encrypted puzzle tokens, twist timing, exam grading
+- `src/lib/ai.ts`: Claude opponent (structured output: commentary, hypothesis, next probe, prediction)
+- `src/app/api/*`: stateless route handlers
+- `src/components/Game.tsx`: the race screen
 
-To learn more about Next.js, take a look at the following resources:
+## Known limits
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Scores are tracked client-side, so a determined player can cheat. Fine for a party game; add server sessions before any leaderboard.
+- Each AI move is one Claude call (~$0.01–0.03 at low effort). Add rate limiting before a public launch.
