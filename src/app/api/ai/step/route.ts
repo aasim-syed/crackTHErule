@@ -3,7 +3,7 @@ import { open, probe } from "@/lib/puzzle";
 import { isBits } from "@/lib/rules";
 import { isEvidenceList } from "@/lib/types";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
   const { token, history, score, probeIndex, hypothesis } = await req.json().catch(() => ({}));
@@ -18,6 +18,6 @@ export async function POST(req: Request) {
     return Response.json({ step, result });
   } catch (err) {
     console.error(err);
-    return Response.json({ error: "The AI could not make a move. Check ANTHROPIC_API_KEY and the server log." }, { status: 502 });
+    return Response.json({ error: "The AI could not make a move. Check GROQ_API_KEY and the server log." }, { status: 502 });
   }
 }

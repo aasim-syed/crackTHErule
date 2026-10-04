@@ -2,7 +2,7 @@ import { takeExam } from "@/lib/ai";
 import { grade, makeExam, open } from "@/lib/puzzle";
 import { isEvidenceList } from "@/lib/types";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
   const { token, history, probeIndex, hypothesis } = await req.json().catch(() => ({}));
@@ -16,6 +16,6 @@ export async function POST(req: Request) {
     return Response.json({ questions, answers, commentary, ...grade(p, probeIndex, questions, answers) });
   } catch (err) {
     console.error(err);
-    return Response.json({ error: "The AI could not take the exam. Check ANTHROPIC_API_KEY and the server log." }, { status: 502 });
+    return Response.json({ error: "The AI could not take the exam. Check GROQ_API_KEY and the server log." }, { status: 502 });
   }
 }

@@ -177,7 +177,7 @@ export default function CreatePage() {
         CRACK <span className="text-amber-300">THE</span> RULE
       </Link>
       <h1 className="mt-6 text-3xl font-black sm:text-4xl">Make a rule. Stump the AI.</h1>
-      <p className="mt-2 text-white/70">Your friends race Claude to crack it. Nobody sees the rule until the round is over.</p>
+      <p className="mt-2 text-white/70">Your friends race the AI to crack it. Nobody sees the rule until the round is over.</p>
 
       <div className="mt-8 space-y-5">
         <RuleEditor title="Your secret rule" value={main} onChange={(d) => { setMain(d); setLink(""); }} />

@@ -307,7 +307,7 @@ export default function Game({ token, meta }: { token: string; meta: Meta }) {
         {/* AI */}
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-sky-300/80">Claude</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-sky-300/80">AI</h2>
             <Score value={aiScore} status={ai.status} />
           </div>
 

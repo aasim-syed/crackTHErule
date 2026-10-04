@@ -64,7 +64,7 @@ export default function Home() {
 
       <div className="mt-12 rounded-2xl border border-white/10 p-5">
         <p className="font-semibold">Think you can stump the AI?</p>
-        <p className="mt-1 text-sm text-white/60">Invent your own rule and send the link to friends. They race Claude to crack it.</p>
+        <p className="mt-1 text-sm text-white/60">Invent your own rule and send the link to friends. They race the AI to crack it.</p>
         <Link href="/create" className="mt-4 inline-block rounded-xl bg-white/10 px-5 py-2.5 font-semibold hover:bg-white/15">
           Make a rule
         </Link>

@@ -1,12 +1,12 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import Groq from "groq-sdk";
 import { z } from "zod";
 import type { Evidence } from "./types";
 import { EXAM_PENALTY, EXAM_SIZE } from "./puzzle";
 
-const client = new Anthropic();
-const MODEL = process.env.CLAUDE_MODEL ?? "claude-opus-5-5";
+// Free-tier Groq allows ~8k tokens/minute, so keep moves lean and wait out 429s.
+const client = new Groq({ maxRetries: 6 }); // reads GROQ_API_KEY
+const MODEL = process.env.AI_MODEL ?? "openai/gpt-oss-120b";
 
 const SYSTEM = `You are playing "Crack the Rule", a live game watched by an audience, against a human opponent.
 
@@ -41,24 +41,65 @@ const Exam = z.object({
 
 function formatEvidence(history: Evidence[]): string {
   if (history.length === 0) return "No evidence yet. This is your first move.";
-  return history
+  const lines = history
     .map((e, i) => `${i + 1}. ${e.bits} -> ${e.open ? "OPEN" : "closed"}${e.source === "exam" ? " (revealed by a failed exam)" : ""}`)
     .join("\n");
+  return `${lines}
+
+Quick notes (computed from the list above; use them, but think for yourself):
+${summarize(history)}`;
 }
 
-async function call<T extends z.ZodType>(schema: T, twist: boolean, user: string): Promise<z.infer<T>> {
-  const response = await client.beta.messages.parse({
+/** The patterns a person would spot by eyeballing their log. Cheap tokens, big help at low reasoning effort. */
+function summarize(history: Evidence[]): string {
+  const opens = history.filter((e) => e.open).map((e) => e.bits);
+  const closeds = history.filter((e) => !e.open).map((e) => e.bits);
+  const count = (b: string) => b.split("").filter((c) => c === "1").length;
+  const sw = (idx: number[]) => (idx.length ? idx.map((i) => i + 1).join(", ") : "none");
+  const notes: string[] = [];
+  if (opens.length) {
+    const always = (v: string) => [0, 1, 2, 3, 4, 5].filter((i) => opens.every((b) => b[i] === v));
+    notes.push(`- Switches ON in every OPEN result: ${sw(always("1"))}`);
+    notes.push(`- Switches OFF in every OPEN result: ${sw(always("0"))}`);
+    notes.push(`- Number of switches on in OPEN results: ${[...new Set(opens.map(count))].sort().join(", ")}`);
+  } else notes.push("- The door has not opened yet.");
+  if (closeds.length) notes.push(`- Number of switches on in closed results: ${[...new Set(closeds.map(count))].sort().join(", ")}`);
+  const seen = new Map<string, boolean>();
+  for (const e of history) {
+    if (seen.has(e.bits) && seen.get(e.bits) !== e.open) notes.push(`- CONTRADICTION: ${e.bits} gave different results at different times.`);
+    seen.set(e.bits, e.open);
+  }
+  return notes.join("\n");
+}
+
+async function call<T extends z.ZodType>(schema: T, twist: boolean, user: string, attempt = 0): Promise<z.infer<T>> {
+  try {
+    return await request(schema, twist, user);
+  } catch (err) {
+    // The model occasionally emits empty/invalid JSON; one retry almost always fixes it.
+    const badJson = err instanceof Groq.BadRequestError || err instanceof SyntaxError || err instanceof z.ZodError;
+    if (badJson && attempt === 0) return call(schema, twist, user, 1);
+    throw err;
+  }
+}
+
+async function request<T extends z.ZodType>(schema: T, twist: boolean, user: string): Promise<z.infer<T>> {
+  const completion = await client.chat.completions.create({
     model: MODEL,
-    max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort: "low", format: betaZodOutputFormat(schema) },
-    system: [{ type: "text", text: SYSTEM + (twist ? TWIST : ""), cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: user }],
+    reasoning_effort: (process.env.AI_REASONING as "low" | "medium" | "high") ?? "low",
+    max_completion_tokens: 3000,
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "move", schema: z.toJSONSchema(schema) as Record<string, unknown>, strict: true },
+    },
+    messages: [
+      { role: "system", content: SYSTEM + (twist ? TWIST : "") },
+      { role: "user", content: user },
+    ],
   });
-  if (response.stop_reason === "refusal") throw new Error("The model declined this request.");
-  if (!response.parsed_output) throw new Error("The model returned an unreadable move.");
-  return response.parsed_output as z.infer<T>;
+  const text = completion.choices[0]?.message?.content;
+  if (!text) throw new Error("The model returned an empty move.");
+  return schema.parse(JSON.parse(text));
 }
 
 export async function nextStep(history: Evidence[], score: number, twist: boolean, lastHypothesis?: string) {
