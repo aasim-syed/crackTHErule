@@ -1,9 +1,41 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Evidence } from "@/lib/types";
 import { Door, PatternChip, Switches } from "./Board";
+
+// three.js only loads when someone actually uses the 3D view.
+const Room3D = dynamic(() => import("./Room3D"), {
+  ssr: false,
+  loading: () => <div className="h-[300px] w-full animate-pulse rounded-xl bg-white/5" />,
+});
+
+// Remembered 2D/3D preference (per browser).
+const viewListeners = new Set<() => void>();
+let chosenView: "2d" | "3d" | null = null;
+function readView(): "2d" | "3d" {
+  if (chosenView) return chosenView;
+  try {
+    return localStorage.getItem("view") === "2d" ? "2d" : "3d";
+  } catch {
+    return "3d";
+  }
+}
+function saveView(v: "2d" | "3d") {
+  chosenView = v;
+  try {
+    localStorage.setItem("view", v);
+  } catch {
+    /* storage unavailable: the choice still holds for this visit */
+  }
+  viewListeners.forEach((l) => l());
+}
+function subscribeView(cb: () => void) {
+  viewListeners.add(cb);
+  return () => viewListeners.delete(cb);
+}
 
 const PENALTY = 3;
 const AI_GIVE_UP_SCORE = 40;
@@ -36,6 +68,7 @@ type Meta = { twist: boolean; difficulty: string; author?: string };
 
 export default function Game({ token, meta }: { token: string; meta: Meta }) {
   const [started, setStarted] = useState(false);
+  const view = useSyncExternalStore(subscribeView, readView, () => "3d" as const);
 
   // --- Human side ---
   const [bits, setBits] = useState("000000");
@@ -220,7 +253,19 @@ export default function Game({ token, meta }: { token: string; meta: Meta }) {
         <Link href="/" className="text-lg font-black tracking-tight">
           CRACK <span className="text-amber-300">THE</span> RULE
         </Link>
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex overflow-hidden rounded-full border border-white/20" role="group" aria-label="View">
+            {(["2d", "3d"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => saveView(v)}
+                aria-pressed={view === v}
+                className={`px-3 py-1 font-bold uppercase ${view === v ? "bg-amber-300 text-slate-950" : "text-white/70 hover:bg-white/10"}`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
           <span className="rounded-full border border-white/15 px-3 py-1 capitalize">{meta.difficulty}</span>
           {meta.author && <span className="rounded-full border border-white/15 px-3 py-1">Rule by {meta.author}</span>}
           {meta.twist && <span className="rounded-full border border-fuchsia-400/50 bg-fuchsia-500/10 px-3 py-1 text-fuchsia-200">Twist: the rule secretly changes once</span>}
@@ -276,10 +321,17 @@ export default function Game({ token, meta }: { token: string; meta: Meta }) {
             <h2 className="text-sm font-bold uppercase tracking-widest text-white/60">You</h2>
             <Score value={score} status={status} />
           </div>
-          <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-8">
-            <Switches bits={bits} onToggle={toggle} disabled={humanDone || status === "exam"} />
-            <Door state={doorState} />
-          </div>
+          {view === "3d" ? (
+            <div className="mt-4 flex flex-col items-center gap-4">
+              <Room3D bits={bits} door={doorState} onToggle={humanDone || status === "exam" ? undefined : toggle} />
+              <Switches bits={bits} onToggle={toggle} disabled={humanDone || status === "exam"} small />
+            </div>
+          ) : (
+            <div className="mt-5 flex flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-8">
+              <Switches bits={bits} onToggle={toggle} disabled={humanDone || status === "exam"} />
+              <Door state={doorState} />
+            </div>
+          )}
           {!humanDone && (
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <button
@@ -330,6 +382,15 @@ export default function Game({ token, meta }: { token: string; meta: Meta }) {
             </div>
           ) : (
             <div className="mt-5">
+              {view === "3d" && (
+                <div className="mb-4">
+                  <Room3D
+                    bits={ai.pending?.bits ?? ai.history.at(-1)?.bits ?? "000000"}
+                    door={ai.pending || !ai.history.length ? "untested" : ai.history.at(-1)!.open ? "open" : "closed"}
+                    height={220}
+                  />
+                </div>
+              )}
               {ai.pending && (
                 <div className="mb-4 flex items-center gap-4">
                   <Switches bits={ai.pending.bits} small />
