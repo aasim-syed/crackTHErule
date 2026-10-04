@@ -12,9 +12,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+const description = "A secret rule controls the door. Race an AI to figure it out, then make a rule to stump your friends.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Crack the Rule",
-  description: "A secret rule controls the door. Race an AI to figure it out, then make a rule to stump your friends.",
+  description,
+  openGraph: { title: "Crack the Rule: can you out-think an AI?", description, siteName: "Crack the Rule", type: "website" },
+  twitter: { card: "summary_large_image", title: "Crack the Rule: can you out-think an AI?", description },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
