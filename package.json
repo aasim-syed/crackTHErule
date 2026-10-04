@@ -2,6 +2,13 @@
   "name": "crack-the-rule",
   "version": "0.1.0",
   "private": true,
+  "description": "Race an AI to crack a secret rule. Six switches, one door, a 3D escape room.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aasim-syed/crackTHErule.git"
+  },
+  "homepage": "https://cracktherule.vercel.app",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
